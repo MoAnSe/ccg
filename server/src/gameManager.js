@@ -49,34 +49,91 @@ export class GameManager {
     return roomId ? this.sessions.get(roomId) || null : null;
   }
 
-  savePlacedCards(socketId, cards) {
+  getPlayerBySocket(socketId) {
     const session = this.getSessionBySocket(socketId);
     if (!session) {
       return null;
     }
 
     const player = session.players.find((entry) => entry.socketId === socketId);
-    if (!player) {
+    return player ? { session, player } : null;
+  }
+
+  getPlayerBySocket(socketId) {
+    const session = this.getSessionBySocket(socketId);
+    if (!session) {
       return null;
     }
 
-    player.placedCards = Array.isArray(cards) ? cards : [];
-    return session;
+    const player = session.players.find((entry) => entry.socketId === socketId);
+    return player ? { session, player } : null;
+  }
+
+  validatePlacedCards(cards) {
+    if (!Array.isArray(cards) || cards.length !== 10) {
+      return { ok: false, error: "Expected exactly 10 cards." };
+    }
+
+    const slotIndexes = cards.map((card) => card.slotIndex);
+    if (slotIndexes.some((slotIndex) => !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 9)) {
+      return { ok: false, error: "Slot indexes must be integers from 0 to 9." };
+    }
+
+    const uniqueSlots = new Set(slotIndexes);
+    if (uniqueSlots.size !== 10) {
+      return { ok: false, error: "All 10 slot indexes must be unique." };
+    }
+
+    if (cards.some((card) => typeof card.cardId !== "string" || !card.cardId)) {
+      return { ok: false, error: "Each card must have a cardId." };
+    }
+
+    return { ok: true };
+  }
+
+  savePlacedCards(socketId, cards) {
+    const session = this.getSessionBySocket(socketId);
+    if (!session) {
+      return { ok: false, error: "Session not found." };
+    }
+
+    const player = session.players.find((entry) => entry.socketId === socketId);
+    if (!player) {
+      return { ok: false, error: "Player not found." };
+    }
+
+    const validation = this.validatePlacedCards(cards);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    player.placedCards = cards.map((card) => ({
+      cardId: card.cardId,
+      slotIndex: card.slotIndex
+    }));
+    player.ready = false;
+
+    return { ok: true, session };
   }
 
   confirmSetup(socketId) {
     const session = this.getSessionBySocket(socketId);
     if (!session) {
-      return null;
+      return { ok: false, error: "Session not found." };
     }
 
     const player = session.players.find((entry) => entry.socketId === socketId);
     if (!player) {
-      return null;
+      return { ok: false, error: "Player not found." };
+    }
+
+    const validation = this.validatePlacedCards(player.placedCards);
+    if (!validation.ok) {
+      return validation;
     }
 
     player.ready = true;
-    return session;
+    return { ok: true, session };
   }
 
   areAllPlayersReady(roomId) {

@@ -1,3 +1,84 @@
 {
-  "cards": []
+  "cards": [
+    {
+      "id": "aura_shield",
+      "name": "Aura Shield",
+      "class": "Aura",
+      "atk": 3,
+      "hp": 5,
+      "abilityId": "aura_hidden_shield"
+    },
+    {
+      "id": "aura_blessing",
+      "name": "Aura Blessing",
+      "class": "Aura",
+      "atk": 3,
+      "hp": 5,
+      "abilityId": "aura_hidden_blessing"
+    },
+    {
+      "id": "trap_plague",
+      "name": "Trap Plague",
+      "class": "Trap",
+      "atk": 2,
+      "hp": 4,
+      "abilityId": "trap_plague_hidden"
+    },
+    {
+      "id": "trap_poison",
+      "name": "Trap Poison",
+      "class": "Trap",
+      "atk": 2,
+      "hp": 4,
+      "abilityId": "trap_poison_hidden"
+    },
+    {
+      "id": "demolition",
+      "name": "Demolition",
+      "class": "Trap",
+      "atk": 3,
+      "hp": 3,
+      "abilityId": "trap_demolition_hidden"
+    },
+    {
+      "id": "combater_alpha",
+      "name": "Combater Alpha",
+      "class": "Combater",
+      "atk": 4,
+      "hp": 6,
+      "abilityId": "combater_transfer"
+    },
+    {
+      "id": "combater_beta",
+      "name": "Combater Beta",
+      "class": "Combater",
+      "atk": 4,
+      "hp": 6,
+      "abilityId": "combater_transfer"
+    },
+    {
+      "id": "combater_gamma",
+      "name": "Combater Gamma",
+      "class": "Combater",
+      "atk": 4,
+      "hp": 6,
+      "abilityId": "combater_transfer"
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger",
+      "class": "Ranger",
+      "atk": 5,
+      "hp": 4,
+      "abilityId": "ranger_aim"
+    },
+    {
+      "id": "specialist",
+      "name": "Specialist",
+      "class": "Specialist",
+      "atk": 2,
+      "hp": 2,
+      "abilityId": "specialist_suppression"
+    }
+  ]
 }

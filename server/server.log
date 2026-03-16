@@ -1,11 +1,41 @@
 [server] listening on http://localhost:3000
-[socket] connected 0tqZn2ppLorjF6ToAAAC
-[socket] join_lobby from 0tqZn2ppLorjF6ToAAAC
-[socket] connected nQfZCx4_7L8FWqbcAAAD
-[socket] join_lobby from nQfZCx4_7L8FWqbcAAAD
-[socket] setup_place_cards from 0tqZn2ppLorjF6ToAAAC in room-1
-[socket] setup_confirm from 0tqZn2ppLorjF6ToAAAC in room-1
-[socket] setup_place_cards from nQfZCx4_7L8FWqbcAAAD in room-1
-[socket] setup_confirm from nQfZCx4_7L8FWqbcAAAD in room-1
-[socket] disconnected 0tqZn2ppLorjF6ToAAAC: client namespace disconnect
-[socket] disconnected nQfZCx4_7L8FWqbcAAAD: client namespace disconnect
+[socket] connected SEWizguUxnWHsO_kAAAC
+[socket] connected CR6N_0C8j1rKqXWiAAAD
+[socket] join_lobby from CR6N_0C8j1rKqXWiAAAD
+[socket] join_lobby from SEWizguUxnWHsO_kAAAC
+[socket] setup_place_cards from CR6N_0C8j1rKqXWiAAAD in room-1
+[socket] setup_place_cards from SEWizguUxnWHsO_kAAAC in room-1
+[socket] setup_confirm from CR6N_0C8j1rKqXWiAAAD in room-1
+[socket] setup_confirm from SEWizguUxnWHsO_kAAAC in room-1
+[socket] disconnected SEWizguUxnWHsO_kAAAC: client namespace disconnect
+[socket] disconnected CR6N_0C8j1rKqXWiAAAD: client namespace disconnect
+[socket] connected ClpkeI5XnfxaC4F2AAAG
+[socket] connected _4bC5BCYxF6lprGPAAAH
+[socket] join_lobby from ClpkeI5XnfxaC4F2AAAG
+[socket] join_lobby from _4bC5BCYxF6lprGPAAAH
+[socket] setup_place_cards from ClpkeI5XnfxaC4F2AAAG in room-2
+[socket] setup_place_cards from _4bC5BCYxF6lprGPAAAH in room-2
+[socket] setup_confirm from ClpkeI5XnfxaC4F2AAAG in room-2
+[socket] setup_confirm from _4bC5BCYxF6lprGPAAAH in room-2
+[socket] disconnected ClpkeI5XnfxaC4F2AAAG: client namespace disconnect
+[socket] disconnected _4bC5BCYxF6lprGPAAAH: client namespace disconnect
+[socket] connected Q_Z7WKjZJp0XTkaLAAAK
+[socket] connected z-n80VQR6MLWnkuXAAAL
+[socket] join_lobby from Q_Z7WKjZJp0XTkaLAAAK
+[socket] join_lobby from z-n80VQR6MLWnkuXAAAL
+[socket] setup_place_cards from Q_Z7WKjZJp0XTkaLAAAK in room-3
+[socket] setup_place_cards from z-n80VQR6MLWnkuXAAAL in room-3
+[socket] setup_confirm from Q_Z7WKjZJp0XTkaLAAAK in room-3
+[socket] setup_confirm from z-n80VQR6MLWnkuXAAAL in room-3
+[socket] disconnected Q_Z7WKjZJp0XTkaLAAAK: client namespace disconnect
+[socket] disconnected z-n80VQR6MLWnkuXAAAL: client namespace disconnect
+[socket] connected 1MW8pxJnYPci_pOIAAAO
+[socket] join_lobby from 1MW8pxJnYPci_pOIAAAO
+[socket] connected 9QOPsvdkOrKSj0J0AAAP
+[socket] join_lobby from 9QOPsvdkOrKSj0J0AAAP
+[socket] setup_place_cards from 9QOPsvdkOrKSj0J0AAAP in room-4
+[socket] setup_place_cards from 1MW8pxJnYPci_pOIAAAO in room-4
+[socket] setup_confirm from 9QOPsvdkOrKSj0J0AAAP in room-4
+[socket] setup_confirm from 1MW8pxJnYPci_pOIAAAO in room-4
+[socket] disconnected 1MW8pxJnYPci_pOIAAAO: client namespace disconnect
+[socket] disconnected 9QOPsvdkOrKSj0J0AAAP: client namespace disconnect
