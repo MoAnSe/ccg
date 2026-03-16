@@ -1,0 +1,11 @@
+[server] listening on http://localhost:3000
+[socket] connected 0tqZn2ppLorjF6ToAAAC
+[socket] join_lobby from 0tqZn2ppLorjF6ToAAAC
+[socket] connected nQfZCx4_7L8FWqbcAAAD
+[socket] join_lobby from nQfZCx4_7L8FWqbcAAAD
+[socket] setup_place_cards from 0tqZn2ppLorjF6ToAAAC in room-1
+[socket] setup_confirm from 0tqZn2ppLorjF6ToAAAC in room-1
+[socket] setup_place_cards from nQfZCx4_7L8FWqbcAAAD in room-1
+[socket] setup_confirm from nQfZCx4_7L8FWqbcAAAD in room-1
+[socket] disconnected 0tqZn2ppLorjF6ToAAAC: client namespace disconnect
+[socket] disconnected nQfZCx4_7L8FWqbcAAAD: client namespace disconnect

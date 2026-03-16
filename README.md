@@ -1,9 +1,23 @@
 # CCG Project
 
-Project scaffold for a networked browser card duel game.
+Minimal `Express + Socket.IO + Phaser` scaffold.
 
-## Structure
+## Run
 
-- `server/` - backend entry, matchmaking, rules, card pool, tests
-- `client/` - Phaser frontend, scenes, network, models, tests
-- `docs/` - design notes
+```bash
+cd server
+npm install
+npm start
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Expected result:
+
+- server logs `join_lobby`
+- client logs `lobby_joined`
+- opening a second tab creates a second independent connection
