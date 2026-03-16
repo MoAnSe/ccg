@@ -1,0 +1,10 @@
+{
+  "name": "ccg-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "echo \"No client runner configured yet\"",
+    "test": "echo \"No client tests yet\""
+  }
+}
