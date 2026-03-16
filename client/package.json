@@ -1,0 +1,10 @@
+{
+  "name": "ccg-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"Client dev script is not configured yet\"",
+    "build": "echo \"Client build script is not configured yet\""
+  }
+}
