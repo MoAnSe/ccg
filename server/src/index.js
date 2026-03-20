@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
@@ -10,8 +10,10 @@ import { activateCardAction, applyAttack, createInitialGameState, createPlayerVi
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..", "..");
+const clientBuildDir = path.join(rootDir, "client", "dist");
 const clientPublicDir = path.join(rootDir, "client", "public");
 const clientSrcDir = path.join(rootDir, "client", "src");
+const clientStaticDir = existsSync(clientBuildDir) ? clientBuildDir : clientPublicDir;
 const cardDefinitionsPath = path.join(__dirname, "cards", "card_definitions.json");
 const cardDefinitions = JSON.parse(readFileSync(cardDefinitionsPath, "utf-8"));
 
@@ -24,13 +26,15 @@ const io = new Server(httpServer, {
   }
 });
 
-app.use(express.static(clientPublicDir));
+app.use(express.static(clientStaticDir));
 
-// Expose the frontend source entry so the static index can load the Phaser bootstrap.
-app.use("/src", express.static(clientSrcDir));
+if (!existsSync(clientBuildDir)) {
+  // Local development fallback while the client has no dedicated build step.
+  app.use("/src", express.static(clientSrcDir));
+}
 
 app.get("/", (_req, res) => {
-  res.sendFile(path.join(clientPublicDir, "index.html"));
+  res.sendFile(path.join(clientStaticDir, "index.html"));
 });
 
 app.get("/api/card-definitions", (_req, res) => {
@@ -202,7 +206,7 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 httpServer.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
+  console.log(`[server] listening on port ${PORT}`);
 });

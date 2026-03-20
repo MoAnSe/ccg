@@ -4,6 +4,7 @@ const CARD_WIDTH = 132;
 const CARD_HEIGHT = 176;
 const PREVIEW_SCALE = 1.2;
 const PREVIEW_DELAY = 1000;
+const SERVER_URL = window.location.origin;
 
 const CARD_META = {
   aura_shield: {
@@ -244,7 +245,7 @@ function registerSocketHandlers(game) {
 
 function createSocket(game) {
   if (!appState.socket) {
-    appState.socket = io();
+    appState.socket = io(SERVER_URL);
     registerSocketHandlers(game);
   }
   return appState.socket;
