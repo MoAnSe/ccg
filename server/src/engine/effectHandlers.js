@@ -104,6 +104,12 @@ function resolveSelector(effect, context) {
       return attackerCard;
     case "attackerIfAlive":
       return attackerCard && gameState.players[attackerCard.owner].cards[attackerCard.slotIndex] ? attackerCard : null;
+    case "attackerIfAliveAndRevealed":
+      return attackerCard &&
+        attackerCard.revealed &&
+        gameState.players[attackerCard.owner].cards[attackerCard.slotIndex]
+        ? attackerCard
+        : null;
     case "ownRandomAlive":
       return pickRandom(gameState, getAllAliveCards(gameState, sourceCard.owner));
     case "ownRandomAliveExcludingSelf": {
