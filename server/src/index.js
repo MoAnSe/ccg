@@ -182,6 +182,20 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("selection_update", ({ attackerSlot, targetSlot }) => {
+    const lookup = gameManager.getPlayerBySocket(socket.id);
+    if (!lookup) {
+      return;
+    }
+
+    const { session, player } = lookup;
+    io.to(session.roomId).emit("selection_update", {
+      playerIndex: player.playerIndex,
+      attackerSlot,
+      targetSlot
+    });
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[socket] disconnected ${socket.id}: ${reason}`);
     gameManager.removeSocket(socket.id);

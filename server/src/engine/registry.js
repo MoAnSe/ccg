@@ -55,8 +55,9 @@ export const abilityRegistry = Object.freeze({
     effects: [
       {
         type: "applyStatus",
-        targetSelector: "enemyRandomHidden",
-        statusId: STATUS_IDS.POISON
+        targetSelector: "attacker",
+        statusId: STATUS_IDS.POISON,
+        skipIfAttackerRanged: true
       }
     ]
   },
@@ -81,7 +82,8 @@ export const abilityRegistry = Object.freeze({
       {
         type: "transferStats",
         targetSelector: "ownRandomAliveClassCombater",
-        fraction: 0.5
+        atk: 2,
+        hp: 3
       }
     ]
   },

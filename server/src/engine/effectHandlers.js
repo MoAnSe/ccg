@@ -63,7 +63,7 @@ export function addStatus(card, status) {
 }
 
 export function consumeShieldIfPresent(card, context, reason) {
-  if (!card || reason === STATUS_IDS.PLAGUE) {
+  if (!card) {
     return false;
   }
 
@@ -85,6 +85,12 @@ function getAllAliveCards(gameState, owner) {
   return gameState.players[owner].cards.filter(Boolean);
 }
 
+function resolveWithFallback(effect, context) {
+  return resolveSelector(effect, context) || (effect.fallbackTargetSelector
+    ? resolveSelector({ targetSelector: effect.fallbackTargetSelector }, context)
+    : null);
+}
+
 function resolveSelector(effect, context) {
   const { gameState, sourceCard, attackerCard, targetCard } = context;
   const enemyOwner = sourceCard.owner === 0 ? 1 : 0;
@@ -100,6 +106,12 @@ function resolveSelector(effect, context) {
       return attackerCard && gameState.players[attackerCard.owner].cards[attackerCard.slotIndex] ? attackerCard : null;
     case "ownRandomAlive":
       return pickRandom(gameState, getAllAliveCards(gameState, sourceCard.owner));
+    case "ownRandomAliveExcludingSelf": {
+      const allies = getAllAliveCards(gameState, sourceCard.owner).filter(
+        (card) => !(card.owner === sourceCard.owner && card.slotIndex === sourceCard.slotIndex)
+      );
+      return pickRandom(gameState, allies);
+    }
     case "ownRandomAdjacent": {
       const adjacent = getAdjacentSlotIndexes(sourceCard.slotIndex)
         .map((slotIndex) => gameState.players[sourceCard.owner].cards[slotIndex])
@@ -136,7 +148,7 @@ export function createStatus(statusId) {
     case STATUS_IDS.SHIELD_ONE:
       return { id: STATUS_IDS.SHIELD_ONE };
     case STATUS_IDS.PLAGUE:
-      return { id: STATUS_IDS.PLAGUE, turnsRemaining: 1 };
+      return { id: STATUS_IDS.PLAGUE, turnsRemaining: 3 };
     case STATUS_IDS.POISON:
       return { id: STATUS_IDS.POISON, turnsRemaining: 2 };
     case STATUS_IDS.RANGER_AIM:
@@ -147,7 +159,11 @@ export function createStatus(statusId) {
 }
 
 function handleApplyStatus(effect, context) {
-  const targetCard = resolveSelector(effect, context);
+  if (effect.skipIfAttackerRanged && context.isRangedAttack) {
+    return;
+  }
+
+  const targetCard = resolveWithFallback(effect, context);
   if (!targetCard) {
     return;
   }
@@ -165,7 +181,7 @@ function handleApplyStatus(effect, context) {
 }
 
 function handleBuff(effect, context) {
-  const targetCard = resolveSelector(effect, context);
+  const targetCard = resolveWithFallback(effect, context);
   if (!targetCard) {
     return;
   }
@@ -183,9 +199,7 @@ function handleBuff(effect, context) {
 }
 
 function handleDealDamage(effect, context) {
-  const targetCard = resolveSelector(effect, context) || (effect.fallbackTargetSelector
-    ? resolveSelector({ targetSelector: effect.fallbackTargetSelector }, context)
-    : null);
+  const targetCard = resolveWithFallback(effect, context);
 
   if (!targetCard) {
     return;
@@ -196,7 +210,7 @@ function handleDealDamage(effect, context) {
     return;
   }
 
-  targetCard.hp -= amount;
+  targetCard.hp = Math.max(0, targetCard.hp - amount);
   pushEvent(context, "effectDamage", {
     owner: targetCard.owner,
     slotIndex: targetCard.slotIndex,
@@ -211,13 +225,13 @@ function handleDealDamage(effect, context) {
 }
 
 function handleTransferStats(effect, context) {
-  const targetCard = resolveSelector(effect, context);
+  const targetCard = resolveWithFallback(effect, context);
   if (!targetCard) {
     return;
   }
 
-  const atkGain = Math.floor((context.sourceCard.atk || 0) * effect.fraction);
-  const hpGain = Math.floor((context.sourceCard.maxHp || 0) * effect.fraction);
+  const atkGain = effect.atk ?? Math.floor((context.sourceCard.atk || 0) * effect.fraction);
+  const hpGain = effect.hp ?? Math.floor((context.sourceCard.maxHp || 0) * effect.fraction);
   targetCard.atk += atkGain;
   targetCard.hp += hpGain;
   targetCard.maxHp += hpGain;

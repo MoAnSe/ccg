@@ -59,16 +59,6 @@ export class GameManager {
     return player ? { session, player } : null;
   }
 
-  getPlayerBySocket(socketId) {
-    const session = this.getSessionBySocket(socketId);
-    if (!session) {
-      return null;
-    }
-
-    const player = session.players.find((entry) => entry.socketId === socketId);
-    return player ? { session, player } : null;
-  }
-
   validatePlacedCards(cards) {
     if (!Array.isArray(cards) || cards.length !== 10) {
       return { ok: false, error: "Expected exactly 10 cards." };
