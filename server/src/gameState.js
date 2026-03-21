@@ -53,6 +53,26 @@ function evaluateWinner(gameState) {
   }
 }
 
+function evaluateNoActionLoss(gameState) {
+  if (gameState.phase === "ended") {
+    return;
+  }
+
+  const currentPlayer = gameState.players[gameState.turnPlayerIndex];
+  const aliveCards = currentPlayer.cards.filter(Boolean);
+  if (!aliveCards.length) {
+    return;
+  }
+
+  const hasActionableCard = aliveCards.some((card) => !getStatus(card, STATUS_IDS.PLAGUE));
+  if (hasActionableCard) {
+    return;
+  }
+
+  gameState.phase = "ended";
+  gameState.winner = gameState.turnPlayerIndex === 0 ? 1 : 0;
+}
+
 function triggerAbility(gameState, trigger, sourceCard, extra = {}) {
   const ability = getAbilityDefinition(sourceCard.abilityId);
   if (!ability || ability.trigger !== trigger) {
@@ -208,6 +228,7 @@ function processStartOfTurn(gameState, events) {
 
   resolvePendingDeaths(gameState, events, { pendingDeaths });
   evaluateWinner(gameState);
+  evaluateNoActionLoss(gameState);
 }
 
 export function createInitialGameState(session, cardDefinitions) {

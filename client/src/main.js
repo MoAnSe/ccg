@@ -923,9 +923,6 @@ class GameScene extends Phaser.Scene {
       }
 
       appState.localSelection = { playerIndex: owner, attackerSlot: slotIndex, targetSlot: null };
-      if (card?.revealed) {
-        appState.socket.emit("selection_update", { attackerSlot: slotIndex, targetSlot: null });
-      }
       this.refreshBoard();
       return;
     }
