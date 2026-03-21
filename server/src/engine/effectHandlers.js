@@ -226,7 +226,8 @@ function handleDealDamage(effect, context) {
 
   context.pendingDeaths.push({
     card: targetCard,
-    suppressAbility: false
+    suppressAbility: false,
+    cause: effect.damageType || "effect"
   });
 }
 

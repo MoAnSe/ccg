@@ -71,7 +71,8 @@ export const abilityRegistry = Object.freeze({
         type: "dealDamage",
         targetSelector: "enemyRandomRevealedExcludingAttacker",
         fallbackTargetSelector: "attackerIfAliveAndRevealed",
-        amount: 5
+        amount: 5,
+        damageType: "explosion"
       }
     ]
   },

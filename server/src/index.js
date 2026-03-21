@@ -200,6 +200,24 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("restart_match", () => {
+    const lookup = gameManager.getPlayerBySocket(socket.id);
+    if (!lookup) {
+      socket.emit("action_error", { message: "Player session not found." });
+      return;
+    }
+
+    const { session } = lookup;
+    gameManager.resetSession(session.roomId);
+    io.to(session.roomId).emit("return_to_setup", {
+      roomId: session.roomId,
+      players: session.players.map((player) => ({
+        playerIndex: player.playerIndex,
+        ready: player.ready
+      }))
+    });
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[socket] disconnected ${socket.id}: ${reason}`);
     gameManager.removeSocket(socket.id);

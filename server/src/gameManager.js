@@ -131,6 +131,22 @@ export class GameManager {
     return Boolean(session) && session.players.every((player) => player.ready);
   }
 
+  resetSession(roomId) {
+    const session = this.sessions.get(roomId);
+    if (!session) {
+      return null;
+    }
+
+    session.phase = "setup";
+    session.gameState = null;
+    session.players.forEach((player) => {
+      player.ready = false;
+      player.placedCards = [];
+    });
+
+    return session;
+  }
+
   removeSocket(socketId) {
     this.waitingQueue = this.waitingQueue.filter((queuedSocketId) => queuedSocketId !== socketId);
 

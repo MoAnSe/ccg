@@ -85,7 +85,8 @@ function resolvePendingDeaths(gameState, events, options = {}) {
     pushEvent(events, "died", {
       owner: snapshot.owner,
       slotIndex: snapshot.slotIndex,
-      cardId: snapshot.cardId
+      cardId: snapshot.cardId,
+      cause: pending.cause || "unknown"
     });
 
     if (!pending.suppressAbility) {
@@ -99,7 +100,7 @@ function resolvePendingDeaths(gameState, events, options = {}) {
   }
 }
 
-function revealCard(card, events) {
+function revealCard(card, events, cause = "reveal") {
   if (!card || card.revealed) {
     return;
   }
@@ -108,7 +109,8 @@ function revealCard(card, events) {
   pushEvent(events, "revealed", {
     owner: card.owner,
     slotIndex: card.slotIndex,
-    cardId: card.cardId
+    cardId: card.cardId,
+    cause
   });
 }
 
@@ -131,7 +133,12 @@ function applyCombatDamage(attacker, target, events) {
       owner: target.owner,
       slotIndex: target.slotIndex,
       hp: target.hp
-    }
+    },
+    attackerClass: attacker.class,
+    attackerDamage: damageToAttacker,
+    targetDamage: damageToTarget,
+    attackerShielded,
+    targetShielded
   });
 }
 
@@ -152,7 +159,8 @@ function processStartOfTurn(gameState, events) {
           owner: card.owner,
           slotIndex: card.slotIndex,
           statusId: STATUS_IDS.PLAGUE,
-          turnsRemaining: 0
+          turnsRemaining: 0,
+          prevented: true
         });
         return;
       }
@@ -167,7 +175,7 @@ function processStartOfTurn(gameState, events) {
       if (plague.turnsRemaining <= 0) {
         removeStatus(card, STATUS_IDS.PLAGUE);
         card.hp = 0;
-        pendingDeaths.push({ card, suppressAbility: false });
+        pendingDeaths.push({ card, suppressAbility: false, cause: "plague" });
         return;
       }
     }
@@ -175,21 +183,25 @@ function processStartOfTurn(gameState, events) {
     const poison = getStatus(card, STATUS_IDS.POISON);
     if (poison) {
       card.atk = Math.max(0, card.atk - 2);
+      let prevented = false;
       if (!consumeShieldIfPresent(card, { events }, STATUS_IDS.POISON)) {
         card.hp = Math.max(0, card.hp - 2);
+      } else {
+        prevented = true;
       }
       poison.turnsRemaining -= 1;
       pushEvent(events, "statusTick", {
         owner: card.owner,
         slotIndex: card.slotIndex,
         statusId: STATUS_IDS.POISON,
-        turnsRemaining: poison.turnsRemaining
+        turnsRemaining: poison.turnsRemaining,
+        prevented
       });
       if (poison.turnsRemaining <= 0) {
         removeStatus(card, STATUS_IDS.POISON);
       }
       if (card.hp <= 0) {
-        pendingDeaths.push({ card, suppressAbility: false });
+        pendingDeaths.push({ card, suppressAbility: false, cause: "poison" });
       }
     }
   });
@@ -288,6 +300,7 @@ function resolvePlagueIntercept(gameState, attacker, target, events) {
     return false;
   }
 
+  revealCard(target, events, "defender");
   removeStatus(target, STATUS_IDS.PLAGUE);
   attacker.hp = 0;
   pushEvent(events, "plagueIntercept", {
@@ -297,7 +310,7 @@ function resolvePlagueIntercept(gameState, attacker, target, events) {
     targetSlotIndex: target.slotIndex
   });
   resolvePendingDeaths(gameState, events, {
-    pendingDeaths: [{ card: attacker, suppressAbility: false }],
+    pendingDeaths: [{ card: attacker, suppressAbility: false, cause: "plague" }],
     attackerCard: attacker,
     targetCard: target
   });
@@ -316,7 +329,7 @@ function fireRangerShot(gameState, attacker, target) {
   removeStatus(attacker, STATUS_IDS.RANGER_AIM);
 
   const targetWasHidden = !target.revealed;
-  revealCard(target, events);
+  revealCard(target, events, "defender");
   triggerAbility(gameState, "onRevealedByAttack", target, {
     wasHiddenBeforeReveal: targetWasHidden,
     attackerCard: attacker,
@@ -339,7 +352,7 @@ function fireRangerShot(gameState, attacker, target) {
   }
 
   resolvePendingDeaths(gameState, events, {
-    pendingDeaths: target.hp <= 0 ? [...pendingDeaths, { card: target, suppressAbility: false }] : pendingDeaths
+    pendingDeaths: target.hp <= 0 ? [...pendingDeaths, { card: target, suppressAbility: false, cause: "shot" }] : pendingDeaths
   });
   evaluateWinner(gameState);
   if (gameState.phase !== "ended") {
@@ -394,8 +407,8 @@ export function applyAttack(gameState, attackerSlot, targetSlot) {
     attackerAbility?.suppressTargetAbilities && target.class !== attackerAbility.suppressExceptClass
   );
 
-  revealCard(attacker, events);
-  revealCard(target, events);
+  revealCard(attacker, events, "attacker");
+  revealCard(target, events, "defender");
 
   triggerAbility(gameState, "onRevealedByAttack", attacker, {
     wasHiddenBeforeReveal: attackerWasHidden,
@@ -418,10 +431,10 @@ export function applyAttack(gameState, attackerSlot, targetSlot) {
   applyCombatDamage(attacker, target, events);
 
   if (attacker.hp <= 0) {
-    pendingDeaths.push({ card: attacker, suppressAbility: false });
+    pendingDeaths.push({ card: attacker, suppressAbility: false, cause: "attack" });
   }
   if (target.hp <= 0) {
-    pendingDeaths.push({ card: target, suppressAbility: suppressTargetAbilities });
+    pendingDeaths.push({ card: target, suppressAbility: suppressTargetAbilities, cause: "attack" });
   }
 
   resolvePendingDeaths(gameState, events, {

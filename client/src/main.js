@@ -5,6 +5,10 @@ const CARD_HEIGHT = 176;
 const PREVIEW_SCALE = 1.2;
 const PREVIEW_DELAY = 1000;
 const SERVER_URL = window.location.origin;
+const EVENT_STEP_DELAY = 320;
+const ATTACK_COMMIT_DELAY = 500;
+const ATTACK_WINDUP_MS = 500;
+const EVENT_STEP_MS = 280;
 
 const CARD_META = {
   aura_shield: {
@@ -64,7 +68,8 @@ const appState = {
   gameState: null,
   cardDefinitions: null,
   setupCards: [],
-  selection: null,
+  localSelection: null,
+  remoteSelection: null,
   deadSlots: {},
   effectFeed: [],
   message: "",
@@ -111,6 +116,10 @@ function getPreviewCardKey(cardId) {
   return `${getAssetBase(cardId)}_preview`;
 }
 
+function getPreviewVideoPath(cardId) {
+  return `/assets/game/${getPreviewCardKey(cardId)}.webm`;
+}
+
 function getCardDescription(cardId) {
   return CARD_META[cardId]?.description || "No description.";
 }
@@ -136,12 +145,22 @@ function slotKey(owner, slotIndex) {
 }
 
 function buildEffectFeed(events = []) {
+  const causeLabel = {
+    attack: "attack",
+    shot: "ranger shot",
+    poison: "poison",
+    plague: "plague",
+    explosion: "explosion",
+    effect: "effect",
+    unknown: "unknown"
+  };
+
   return events.slice(-8).map((event) => {
     switch (event.type) {
       case "revealed":
         return `Reveal P${event.owner + 1}:${event.slotIndex + 1}`;
       case "damage":
-        return "Combat damage resolved";
+        return `Attack hit P${event.target.owner + 1}:${event.target.slotIndex + 1}`;
       case "statusApplied":
         return `${event.statusId} -> P${event.owner + 1}:${event.slotIndex + 1}`;
       case "shieldConsumed":
@@ -155,13 +174,13 @@ function buildEffectFeed(events = []) {
       case "rangerShot":
         return `Ranger shot -> P${event.targetOwner + 1}:${event.targetSlotIndex + 1}`;
       case "effectDamage":
-        return `Effect damage ${event.amount} -> P${event.owner + 1}:${event.slotIndex + 1}`;
+        return `Explosion ${event.amount} -> P${event.owner + 1}:${event.slotIndex + 1}`;
       case "plagueIntercept":
-        return `Plague intercept`;
+        return `Plague killed attacker`;
       case "statusTick":
-        return `${event.statusId} tick P${event.owner + 1}:${event.slotIndex + 1}`;
+        return `${event.statusId} tick -> P${event.owner + 1}:${event.slotIndex + 1}`;
       case "died":
-        return `Dead ${event.cardId}`;
+        return `${event.cardId} died from ${causeLabel[event.cause] || event.cause}`;
       default:
         return event.type;
     }
@@ -190,7 +209,8 @@ function registerSocketHandlers(game) {
     appState.roomId = roomId;
     appState.playerIndex = yourPlayerIndex;
     appState.readyPlayers = [false, false];
-    appState.selection = null;
+    appState.localSelection = null;
+    appState.remoteSelection = null;
     appState.deadSlots = {};
     await loadCardDefinitions();
     game.scene.start("SetupScene");
@@ -200,6 +220,19 @@ function registerSocketHandlers(game) {
     appState.readyPlayers = players.map((player) => player.ready);
     const scene = appState.scenes.SetupScene;
     scene?.refreshReadyState?.();
+    if (scene?.confirmMark) {
+      scene.confirmMark.setText(appState.readyPlayers[appState.playerIndex] ? "✓" : "");
+    }
+  });
+
+  socket.on("return_to_setup", ({ players }) => {
+    appState.readyPlayers = players.map((player) => player.ready);
+    appState.gameState = null;
+    appState.localSelection = null;
+    appState.remoteSelection = null;
+    appState.deadSlots = {};
+    appState.message = "Returned to setup.";
+    game.scene.start("SetupScene");
   });
 
   socket.on("setup_saved", () => {
@@ -214,7 +247,8 @@ function registerSocketHandlers(game) {
 
   socket.on("game_start", (state) => {
     appState.gameState = state;
-    appState.selection = null;
+    appState.localSelection = null;
+    appState.remoteSelection = null;
     appState.deadSlots = {};
     appState.effectFeed = buildEffectFeed(state.lastEvents);
     game.scene.start("GameScene");
@@ -222,7 +256,8 @@ function registerSocketHandlers(game) {
 
   socket.on("state_update", (state) => {
     appState.gameState = state;
-    appState.selection = null;
+    appState.localSelection = null;
+    appState.remoteSelection = null;
     appState.effectFeed = buildEffectFeed(state.lastEvents);
     for (const event of state.lastEvents || []) {
       if (event.type === "died") {
@@ -233,7 +268,10 @@ function registerSocketHandlers(game) {
   });
 
   socket.on("selection_update", (selection) => {
-    appState.selection = selection;
+    if (selection.playerIndex === appState.playerIndex) {
+      return;
+    }
+    appState.remoteSelection = selection;
     appState.scenes.GameScene?.refreshBoard?.();
   });
 
@@ -260,6 +298,10 @@ function createText(scene, x, y, text, style = {}) {
     strokeThickness: 3,
     ...style
   });
+}
+
+function getCardFromState(state, owner, slotIndex) {
+  return state?.players?.[owner]?.cards?.[slotIndex] || null;
 }
 
 function getStatColor(current, base) {
@@ -409,6 +451,18 @@ class LobbyScene extends Phaser.Scene {
     this.load.image("poison_icon", "/assets/game/poison_drop.png");
     this.load.image("bullet_fx", "/assets/game/bullet.png");
     this.load.image("grenade_fx", "/assets/game/grenade.png");
+    this.load.audio("sfx_attacked", "/assets/sfx/attacked.wav");
+    this.load.audio("sfx_aura_blessing", "/assets/sfx/aura_blessing.wav");
+    this.load.audio("sfx_combater_bless", "/assets/sfx/combater_bless.wav");
+    this.load.audio("sfx_grenade_explosion", "/assets/sfx/grenade_explotion.wav");
+    this.load.audio("sfx_plague", "/assets/sfx/plague.wav");
+    this.load.audio("sfx_plague_dead", "/assets/sfx/plague_dead.wav");
+    this.load.audio("sfx_poison_dmg", "/assets/sfx/poison_dmg.wav");
+    this.load.audio("sfx_ranger_shot", "/assets/sfx/ranger_shot.wav");
+    this.load.audio("sfx_shield_crash", "/assets/sfx/shield_crash.wav");
+    this.load.audio("sfx_shield_equip", "/assets/sfx/shield_equip.wav");
+    this.load.audio("sfx_specialist", "/assets/sfx/specialist.wav");
+    this.load.audio("music_theme", "/assets/sfx/ccg_theme.ogg");
 
     const loaded = new Set();
     Object.values(CARD_META).forEach((entry) => {
@@ -462,8 +516,8 @@ class SetupScene extends Phaser.Scene {
     this.statusText = createText(this, 56, 84, "Place all 10 cards, then confirm.", { fontSize: "22px" });
     this.readyText = createText(this, 56, 120, "", { fontSize: "18px", color: "#b7d9ff" });
     this.bankTitle = createText(this, 56, 520, "Card Pool", { fontSize: "28px" });
-    this.confirmMark = createText(this, GAME_WIDTH - 48, 68, "", {
-      fontSize: "30px",
+    this.confirmMark = createText(this, GAME_WIDTH - 58, 42, "", {
+      fontSize: "22px",
       color: "#8cf18f"
     }).setOrigin(0.5);
 
@@ -483,8 +537,8 @@ class SetupScene extends Phaser.Scene {
     this.cardViews = [];
     this.drawSetupBoard();
 
-    createButton(this, GAME_WIDTH - 430, 68, 220, 52, "Random Setup", () => this.randomizeSetup());
-    createButton(this, GAME_WIDTH - 170, 68, 220, 52, "Confirm Setup", () => this.confirmSetup());
+    createButton(this, GAME_WIDTH - 360, 42, 170, 46, "Random", () => this.randomizeSetup());
+    createButton(this, GAME_WIDTH - 160, 42, 150, 46, "Ready", () => this.confirmSetup());
     this.refreshReadyState();
   }
 
@@ -663,6 +717,7 @@ class SetupScene extends Phaser.Scene {
     appState.socket.emit("setup_confirm");
     appState.readyPlayers[appState.playerIndex] = true;
     this.refreshReadyState();
+    this.confirmMark.setText("✓");
     this.setStatus("Setup submitted. Waiting for both players...");
   }
 }
@@ -684,7 +739,13 @@ class GameScene extends Phaser.Scene {
     this.hoveredKey = null;
     this.previewDelay = null;
     this.previewElements = [];
+    this.previewDom = null;
     this.cardViews = new Map();
+    this.animationLockUntil = 0;
+    this.lastBlessSoundAt = 0;
+    if (!this.sound.get("music_theme")?.isPlaying) {
+      this.sound.play("music_theme", { loop: true, volume: 0.1 });
+    }
     this.handleStateUpdate(appState.gameState);
   }
 
@@ -699,6 +760,10 @@ class GameScene extends Phaser.Scene {
     }
     this.previewElements.forEach((element) => element.destroy());
     this.previewElements = [];
+    if (this.previewDom) {
+      this.previewDom.remove();
+      this.previewDom = null;
+    }
   }
 
   showPreview(card, x, y) {
@@ -707,19 +772,36 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    const previewKey = getPreviewCardKey(card.cardId);
     const px = clamp(x + 190, 250, GAME_WIDTH - 250);
     const py = clamp(y, 220, GAME_HEIGHT - 220);
-    const image = this.add.image(px, py - 38, previewKey).setDisplaySize(CARD_WIDTH * 2 * PREVIEW_SCALE, CARD_HEIGHT * 2 * PREVIEW_SCALE);
     const background = this.add.rectangle(px, py + 170, 340, 110, 0x08101a, 0.72).setStrokeStyle(2, 0xd7c8a0, 0.8);
     const description = createText(this, px - 154, py + 128, getCardDescription(card.cardId), {
       fontSize: "18px",
       wordWrap: { width: 308 }
     });
-    image.setDepth(50);
     background.setDepth(50);
     description.setDepth(50);
-    this.previewElements = [image, background, description];
+
+    const root = document.getElementById("game-root");
+    const video = document.createElement("video");
+    video.src = getPreviewVideoPath(card.cardId);
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.position = "absolute";
+    video.style.left = `${px - 160}px`;
+    video.style.top = `${py - 295}px`;
+    video.style.width = "320px";
+    video.style.height = "426px";
+    video.style.objectFit = "contain";
+    video.style.pointerEvents = "none";
+    video.style.zIndex = "20";
+    video.style.filter = "drop-shadow(0 8px 18px rgba(0,0,0,0.45))";
+    root?.appendChild(video);
+
+    this.previewDom = video;
+    this.previewElements = [background, description];
   }
 
   queuePreview(card, x, y) {
@@ -729,6 +811,7 @@ class GameScene extends Phaser.Scene {
 
   handleStateUpdate(state) {
     this.pendingEvents = state?.lastEvents || [];
+    this.setStatus("");
     this.refreshBoard();
     this.playEventAnimations(this.pendingEvents);
   }
@@ -760,7 +843,7 @@ class GameScene extends Phaser.Scene {
           continue;
         }
 
-        const selection = appState.selection;
+        const selection = appState.localSelection || appState.remoteSelection;
         const selected = Boolean(selection && selection.playerIndex === owner && selection.attackerSlot === slotIndex);
         const targeted = Boolean(selection && selection.targetSlot === slotIndex && owner !== selection.playerIndex);
         const charged = Boolean(card?.statuses?.some((status) => status.id === "ranger-aim") && owner === appState.playerIndex);
@@ -803,11 +886,16 @@ class GameScene extends Phaser.Scene {
             : "YOU LOSE";
       const panel = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 420, 190, 0x061019, 0.82).setStrokeStyle(3, 0xe7dcb7, 1);
       const text = createText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 16, result, { fontSize: "48px" }).setOrigin(0.5);
-      const note = createText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 42, "Refresh the tabs to start a fresh match.", {
+      const note = createText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 42, "Start a new round without reloading.", {
         fontSize: "20px"
       }).setOrigin(0.5);
+      const restartButton = createButton(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 180, 46, "Restart", () => {
+        appState.message = "Restart requested...";
+        appState.socket.emit("restart_match");
+        this.scene.start("SetupScene");
+      });
       this.overlayLayer.removeAll(true);
-      this.overlayLayer.add([panel, text, note]);
+      this.overlayLayer.add([panel, text, note, restartButton]);
     }
   }
 
@@ -817,20 +905,27 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.time.now < this.animationLockUntil) {
+      this.setStatus("Resolving effects...");
+      return;
+    }
+
     if (state.turnPlayerIndex !== appState.playerIndex) {
       this.setStatus("Opponent turn.");
       return;
     }
 
-    const currentSelection = appState.selection;
+    const currentSelection = appState.localSelection || appState.remoteSelection;
     if (owner === appState.playerIndex) {
       if (card?.class === "Ranger" && currentSelection?.attackerSlot === slotIndex) {
         appState.socket.emit("activate_card_action", { slotIndex });
         return;
       }
 
-      appState.selection = { playerIndex: owner, attackerSlot: slotIndex, targetSlot: null };
-      appState.socket.emit("selection_update", { attackerSlot: slotIndex, targetSlot: null });
+      appState.localSelection = { playerIndex: owner, attackerSlot: slotIndex, targetSlot: null };
+      if (card?.revealed) {
+        appState.socket.emit("selection_update", { attackerSlot: slotIndex, targetSlot: null });
+      }
       this.refreshBoard();
       return;
     }
@@ -839,7 +934,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    appState.selection = {
+    appState.localSelection = {
       playerIndex: appState.playerIndex,
       attackerSlot: currentSelection.attackerSlot,
       targetSlot: slotIndex
@@ -850,7 +945,8 @@ class GameScene extends Phaser.Scene {
     });
     this.refreshBoard();
 
-    this.time.delayedCall(220, () => {
+    this.animationLockUntil = this.time.now + ATTACK_COMMIT_DELAY + EVENT_STEP_DELAY * 2;
+    this.time.delayedCall(ATTACK_COMMIT_DELAY, () => {
       appState.socket.emit("attack", {
         attackerSlot: currentSelection.attackerSlot,
         targetSlot: slotIndex
@@ -897,27 +993,61 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  playSound(key, config = {}) {
+    if (!this.sound.get(key)?.isPlaying) {
+      this.sound.play(key, config);
+    }
+  }
+
+  queueSound(delay, key, config = {}) {
+    this.time.delayedCall(delay, () => this.playSound(key, config));
+  }
+
   playEventAnimations(events) {
     if (!events?.length) {
+      this.setStatus("");
       return;
     }
 
+    const unlockAt = this.time.now + events.length * EVENT_STEP_DELAY + 500;
+    this.animationLockUntil = Math.max(this.animationLockUntil, unlockAt);
+    this.time.delayedCall(unlockAt - this.time.now, () => {
+      if (this.time.now >= this.animationLockUntil) {
+        this.setStatus("");
+      }
+    });
+
     events.forEach((event, index) => {
-      const delay = index * 90;
+      const delay = index * EVENT_STEP_DELAY;
       if (event.type === "revealed") {
         this.time.delayedCall(delay, () => this.pulseCard(slotKey(event.owner, event.slotIndex), 0xcaf0ff));
+        if (event.cardId === "trap_plague" && event.cause === "defender") {
+          this.queueSound(delay, "sfx_plague", { volume: 0.2 });
+        }
       }
 
       if (event.type === "buffApplied") {
         this.time.delayedCall(delay, () => this.pulseCard(slotKey(event.owner, event.slotIndex), 0x9effb3));
+        if (this.time.now - this.lastBlessSoundAt > EVENT_STEP_DELAY) {
+          this.lastBlessSoundAt = this.time.now + delay;
+          this.queueSound(delay, "sfx_aura_blessing", { volume: 0.1 });
+        }
       }
 
       if (event.type === "statusApplied") {
         this.time.delayedCall(delay, () => this.pulseCard(slotKey(event.owner, event.slotIndex), 0x9fc4ff));
+        if (event.statusId === "shield-one") {
+          this.queueSound(delay, "sfx_shield_equip", { volume: 0.2 });
+        }
       }
 
       if (event.type === "statsTransferred") {
         this.time.delayedCall(delay, () => this.pulseCard(slotKey(event.toOwner, event.toSlotIndex), 0x9effb3));
+        this.queueSound(delay, "sfx_combater_bless", { volume: 0.1 });
+      }
+
+      if (event.type === "shieldConsumed") {
+        this.queueSound(delay, "sfx_shield_crash", { volume: 0.2 });
       }
 
       if (event.type === "damage") {
@@ -945,6 +1075,12 @@ class GameScene extends Phaser.Scene {
             });
           });
         }
+        if (event.targetDamage > 0 && !event.targetShielded) {
+          this.queueSound(delay + 110, "sfx_attacked", { volume: 0.8 });
+        }
+        if (event.attackerClass === "Specialist") {
+          this.queueSound(delay, "sfx_specialist", { volume: 0.4 });
+        }
       }
 
       if (event.type === "statusTick") {
@@ -960,6 +1096,17 @@ class GameScene extends Phaser.Scene {
             });
           });
         }
+        if (event.statusId === "poison" && !event.prevented) {
+          this.queueSound(delay, "sfx_poison_dmg", { volume: 0.3 });
+          this.queueSound(delay, "sfx_attacked", { volume: 0.8 });
+        }
+        if (event.statusId === "plague" && event.turnsRemaining === 0 && !event.prevented) {
+          this.queueSound(delay, "sfx_plague_dead", { volume: 0.4 });
+        }
+      }
+
+      if (event.type === "plagueIntercept") {
+        this.queueSound(delay, "sfx_plague_dead", { volume: 0.4 });
       }
 
       if (event.type === "rangerShot") {
@@ -970,6 +1117,7 @@ class GameScene extends Phaser.Scene {
         const startX = hiddenForViewer ? halfCenter.x : sourceView ? sourceView.x : halfCenter.x;
         const startY = hiddenForViewer ? halfCenter.y : sourceView ? sourceView.y : halfCenter.y;
         this.time.delayedCall(delay, () => this.playProjectile("bullet_fx", startX, startY, targetPos.x, targetPos.y));
+        this.queueSound(delay, "sfx_ranger_shot", { volume: 0.3 });
         const targetView = this.cardViews.get(slotKey(event.targetOwner, event.targetSlotIndex));
         if (targetView) {
           this.time.delayedCall(delay, () => {
@@ -982,6 +1130,7 @@ class GameScene extends Phaser.Scene {
             });
           });
         }
+        this.queueSound(delay + 120, "sfx_attacked", { volume: 0.8 });
       }
 
       if (event.type === "effectDamage") {
@@ -1000,6 +1149,8 @@ class GameScene extends Phaser.Scene {
             });
           });
         }
+        this.queueSound(delay + 120, "sfx_grenade_explosion", { volume: 0.6 });
+        this.queueSound(delay + 120, "sfx_attacked", { volume: 0.8 });
       }
     });
   }
